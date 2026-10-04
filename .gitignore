@@ -1,0 +1,10 @@
+node_modules
+dist
+
+# 비밀·로컬 환경 (Vercel CLI 가 만든 .env.local 에는 토큰이 있음)
+.env
+.env.*
+!.env.example
+
+# Vercel 로컬 연결·빌드 산출물
+.vercel
