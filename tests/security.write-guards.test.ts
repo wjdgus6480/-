@@ -53,3 +53,23 @@ describe('SEC-001 직접 테이블 쓰기 보호 (Q-01)', () => {
     expect(r.version).toBe(2);
   });
 });
+
+describe('SEC-002 멱등성 기록 직접 쓰기 차단 (Q-10, 마이그레이션 0005)', () => {
+  it('사용자가 REST 로 domain_ops·view_preference_ops 에 직접 넣을 수 없고, RPC 경로는 그대로 동작한다', async () => {
+    const opId = crypto.randomUUID();
+    await expect(
+      serverQuery(server, USER_A, `insert into public.domain_ops (op_id, owner_id, entity, record_id, result) values ($1, $2, 'tasks', $3, '{"status":"applied"}')`, [opId, USER_A, crypto.randomUUID()]),
+    ).rejects.toThrow(/direct writes to domain_ops are not allowed/);
+    await expect(
+      serverQuery(server, USER_A, `insert into public.view_preference_ops (op_id, owner_id, view_id, result) values ($1, $2, $3, '{}')`, [crypto.randomUUID(), USER_A, crypto.randomUUID()]),
+    ).rejects.toThrow(/not allowed/);
+    // 클라이언트가 세션 설정으로 우회하려 해도 트랜잭션이 끝나면 사라지고, PostgREST 로는 set_config 를 호출할 수 없다 (pg_catalog 비노출)
+    const d = await makeDevice({ owner: USER_A, server, name: 'ops' });
+    await d.domain.createTask({ title: 'RPC 경로' });
+    const r = await d.domainSync.sync();
+    expect(r.ok && r.value.pushed).toBe(1);
+    await d.views.listViews('tasks');
+    expect((await d.sync.syncViewPreferences()).ok).toBe(true);
+    expect((await serverQuery(server, USER_A, 'select count(*)::int n from public.domain_ops'))[0].n).toBeGreaterThan(0);
+  });
+});

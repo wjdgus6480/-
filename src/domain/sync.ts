@@ -158,6 +158,8 @@ export class DomainSyncEngine {
   /** 자동 동기화 (30초 주기·변경 직후): 실패 후 대기 중이거나 로그인이 만료되었으면 건너뛴다. */
   autoSync(): Promise<DomainSyncResult> | null {
     if (this.state.status === 'auth' || !this.backoff.ready()) return null;
+    // 화면이 숨겨진 동안(백그라운드 탭·휴대폰 화면 꺼짐)은 주기 요청을 쉬고, 다시 보일 때 visibilitychange 로 즉시 동기화한다.
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return null;
     return this.sync();
   }
 

@@ -113,6 +113,8 @@ export class ViewSyncEngine {
   /** 자동 동기화: 실패 후 대기 중이거나 로그인 만료면 건너뜀 */
   autoSync(): Promise<Result<SyncReport>> | null {
     if (this.state.status === 'auth' || !this.backoff.ready()) return null;
+    // 화면이 숨겨진 동안(백그라운드 탭·휴대폰 화면 꺼짐)은 주기 요청을 쉬고, 다시 보일 때 visibilitychange 로 즉시 동기화한다.
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return null;
     return this.syncViewPreferences();
   }
 

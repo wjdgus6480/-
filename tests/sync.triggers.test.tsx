@@ -44,3 +44,20 @@ describe('SYNC-011 로그인 전 데이터 이전 안내가 사라지지 않음'
     });
   });
 });
+
+describe('SYNC-012 숨겨진 화면에서는 주기 동기화를 쉰다', () => {
+  it('hidden 이면 autoSync 가 요청하지 않고, 명시적 sync 는 그대로 동작한다', async () => {
+    const server = await makeServer();
+    const d = await makeDevice({ owner: USER_A, server });
+    const desc = Object.getOwnPropertyDescriptor(Document.prototype, 'visibilityState')!;
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+    try {
+      expect(d.domainSync.autoSync()).toBeNull();
+      expect(d.sync.autoSync()).toBeNull();
+      expect((await d.domainSync.sync()).ok).toBe(true);
+    } finally {
+      Object.defineProperty(document, 'visibilityState', desc);
+    }
+    expect(d.domainSync.autoSync()).not.toBeNull();
+  });
+});
