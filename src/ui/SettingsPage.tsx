@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { MigrationState } from '../App';
+import { useAuthView } from '../app/auth';
+import { AccountActions, LoginForms } from './AuthForms';
 import { useDomainData, useDomainSyncState, useServices, useSyncState, useViews } from '../app/context';
 import type { DomainBackup, DomainConflict, DomainOp } from '../db/idb';
 import type { DomainError } from '../domain/repo';
@@ -65,9 +67,7 @@ function AccountSection({ mig, onMigrate }: { mig: MigrationState; onMigrate: ()
   const s = useServices();
   const st = useSyncState();
   const ds = useDomainSyncState();
-  const [email, setEmail] = useState('');
-  const [note, setNote] = useState<string | null>(null);
-  const [code, setCode] = useState('');
+  const authView = useAuthView(s.auth);
   return (
     <div className="card">
       <h2>계정 · 기기 간 동기화</h2>
@@ -80,46 +80,8 @@ function AccountSection({ mig, onMigrate }: { mig: MigrationState; onMigrate: ()
           클라우드가 설정되지 않아 이 기기(IndexedDB)에만 저장됩니다. Supabase 무료 프로젝트의 URL·anon key 를 <code>.env</code> 에 넣으면 로그인과 기기 간 동기화가 켜집니다.
         </p>
       )}
-      {s.supabase && !s.session.owner && (
-        <form
-          className="form inline-form"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            const { error } = await s.supabase!.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin } });
-            setNote(error ? `로그인 메일 전송 실패: ${error.message}` : '메일의 로그인 링크를 열거나, 메일에 적힌 6자리 코드를 아래에 입력하세요.');
-          }}
-        >
-          <input type="email" required placeholder="이메일" value={email} onChange={(e) => setEmail(e.target.value)} aria-label="이메일" />
-          <button className="btn primary" type="submit">
-            로그인 메일 받기
-          </button>
-        </form>
-      )}
-      {s.supabase && !s.session.owner && email && (
-        // 아이폰 Mail 앱 안에서 링크가 열리면 Safari 에 로그인이 남지 않으므로 코드 입력도 지원
-        <form
-          className="form inline-form"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            const { error } = await s.supabase!.auth.verifyOtp({ email, token: code.trim(), type: 'email' });
-            setNote(error ? `코드 확인 실패: ${error.message}` : '로그인되었습니다.');
-          }}
-        >
-          <input inputMode="numeric" autoComplete="one-time-code" placeholder="6자리 코드" value={code} onChange={(e) => setCode(e.target.value)} aria-label="로그인 코드" />
-          <button className="btn" type="submit" disabled={code.trim().length < 6}>
-            코드로 로그인
-          </button>
-        </form>
-      )}
-      {s.supabase && s.session.owner && (
-        <p>
-          {s.session.email} 로 로그인됨{' '}
-          <button type="button" className="btn small" onClick={() => s.supabase!.auth.signOut().then(() => location.reload())}>
-            로그아웃
-          </button>
-        </p>
-      )}
-      {note && <p className="muted">{note}</p>}
+      {s.supabase && !authView.userId && <LoginForms />}
+      {s.supabase && authView.userId && <AccountActions email={authView.email} />}
       <div className="row-actions">
         <button
           type="button"

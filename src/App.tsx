@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ServicesContext, useDomainSyncState, useSyncState } from './app/context';
+import { useAuthView } from './app/auth';
+import { ServicesContext, useDomainSyncState, useServices, useSyncState } from './app/context';
 import { createServices, type Services } from './app/services';
 import { migrateLocalDataToAccount, previewLocalDataMigration, type DataMigrationPreview, type DataMigrationSummary } from './domain/migrate';
 import { ENTITY_LABEL, SYNC_ORDER } from './domain/types';
 import { migrateLocalViewsToAccount, type MigrationSummary } from './views/migrate';
 import { SettingsPage } from './ui/SettingsPage';
 import { TablePage } from './ui/TablePage';
+import { SetPasswordForm } from './ui/AuthForms';
 import { Panel } from './ui/ViewMenus';
 
 type Tab = 'tasks' | 'events' | 'projects' | 'settings';
@@ -73,30 +75,25 @@ export function App({ services: injected }: { services?: Services }) {
     void checkPending(services);
     services.sync.start();
     services.domainSync.start();
-    const sub = services.supabase?.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session && services.session.owner !== session.user.id) {
-        services.session.owner = session.user.id;
-        services.session.email = session.user.email ?? null;
+    // 인증 상태 변화 → 데이터 화면·동기화에 반영 (services.session.owner 는 AuthController 구독이 먼저 갱신)
+    let prevOwner = services.auth.state.userId;
+    const unsubAuth = services.auth.subscribe((st, event) => {
+      if (st.userId !== prevOwner) {
+        prevOwner = st.userId;
         services.domain.emit();
         services.views.emit([]);
         void checkPending(services);
       }
       // 로그인·토큰 갱신 후에는 인증 만료로 멈춘 동기화를 바로 다시 시도한다.
-      if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
+      if (st.userId && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
         void services.domainSync.sync();
         void services.sync.syncViewPreferences();
-      }
-      if (event === 'SIGNED_OUT') {
-        services.session.owner = null;
-        services.session.email = null;
-        services.domain.emit();
-        services.views.emit([]);
       }
     });
     return () => {
       services.sync.stop();
       services.domainSync.stop();
-      sub?.data.subscription.unsubscribe();
+      unsubAuth();
     };
   }, [services, checkPending]);
 
@@ -113,6 +110,8 @@ function Shell({ mig, onMigrate }: { mig: MigrationState; onMigrate: () => void 
   const [tab, setTab] = useState<Tab>(tabFromHash);
   const vs = useSyncState();
   const ds = useDomainSyncState();
+  const services = useServices();
+  const authView = useAuthView(services.auth);
   const [askOpen, setAskOpen] = useState(true);
   useEffect(() => {
     const on = () => setTab(tabFromHash());
@@ -143,6 +142,20 @@ function Shell({ mig, onMigrate }: { mig: MigrationState; onMigrate: () => void 
           {conflicts > 0 && ` · 충돌 ${conflicts}`}
         </a>
       </header>
+      {authView.expired && (
+        <div className="notice auth-expired" role="alert">
+          로그인이 만료되었거나 다른 곳에서 로그아웃되었습니다. 이 기기의 데이터와 아직 보내지 않은 변경은 그대로 보존되어 있으며, 다시 로그인하면 이어서 동기화됩니다.{' '}
+          <a href="#settings" className="btn small primary">
+            다시 로그인
+          </a>
+        </div>
+      )}
+      {authView.recovery && (
+        <Panel title="새 비밀번호 설정" onClose={() => services.auth.clearRecovery()}>
+          <p>비밀번호 재설정 링크로 들어왔습니다. 새 비밀번호를 입력하세요.</p>
+          <SetPasswordForm />
+        </Panel>
+      )}
       {mig.preview && !askOpen && (
         // '나중에'를 눌러도 로그인 전 데이터는 계정(서버)에 없으므로 다른 기기에 보이지 않는다 → 계속 알림
         <div className="notice pending-migration" role="status">

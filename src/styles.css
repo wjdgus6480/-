@@ -232,3 +232,7 @@ pre, code, .notice, .error { overflow-wrap: anywhere; }
 }
 /* 빈 목록 안내는 표 전체 폭이 아니라 보이는 영역 기준으로 표시 (모바일 가로 스크롤 표에서 잘림 방지) */
 .empty-msg { position: sticky; left: 0; width: min(100%, calc(100vw - 48px)); white-space: normal; }
+
+/* 로그인 폼: 방법 선택과 입력 사이 간격 */
+.auth-forms { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
+.account-actions { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
