@@ -19,6 +19,13 @@ npx vercel rollback <되돌릴 배포 URL> --scope dotday
 ```
 또는 Vercel 대시보드 › Deployments › 이전 배포 › **Promote to Production**.
 
+- Hobby(무료) 플랜의 Instant Rollback 은 **바로 이전 Production 배포로만** 가능하다 ([Vercel 문서](https://vercel.com/docs/instant-rollback)). 그보다 오래된 배포는 `npx vercel promote <배포 URL> --scope dotday` 로 되돌린다.
+- 롤백하면 Production 도메인 자동 할당이 꺼진다. 이후 새 배포를 올리려면 `vercel promote` 로 해제한다.
+- 롤백은 환경변수를 바꾸지 않는다 (그 배포가 빌드될 때의 값 사용).
+
+### 환경변수 (2026-10-05 등록)
+Vercel 프로젝트 Production 에 `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`(공개용 publishable key) 등록. `.env` 없는 깨끗한 복제본에서 `vercel pull` → `vercel build --prod` 로 두 값이 번들에 들어가고 비밀 키는 없음을 확인함. **secret / service_role 키는 등록 금지.**
+
 ## 2. 코드 되돌리기
 ```bash
 git log --oneline
