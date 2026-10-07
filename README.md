@@ -1,6 +1,7 @@
 # DOTDAY v0.5
 
 투두, 캘린더 일정, 프로젝트를 원하는 형태의 테이블로 보는 개인용 앱입니다.
+서비스: https://dotday-silk.vercel.app · 과제 제출 요약: [docs/SUBMISSION.md](docs/SUBMISSION.md)
 
 ```
 [브라우저: React + IndexedDB]  ──HTTPS(JWT)──▶  [Spring Boot API]  ──JDBC──▶  [MySQL]

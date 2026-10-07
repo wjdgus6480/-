@@ -9,8 +9,8 @@
 | 업무 데이터 (서버) | Supabase 대시보드 › Table Editor › Export CSV, 또는 `supabase db dump` (DB 비밀번호 필요, 사용자가 직접 실행) | 무료 플랜 자동 백업 여부는 대시보드 Database › Backups 에서 확인 |
 
 ## 1. 배포 되돌리기 (가장 빠름, 코드·DB 변경 없음)
-현재 Production (2026-10-07): 별칭 `dotday-silk.vercel.app` → `dotday-gl0ttr55c-dotday.vercel.app` = 커밋 `de45330` (Spring Boot 버전 프론트 + 디자인 개편). `VITE_API_URL` 미설정이라 **로컬 전용 모드**(로그인·동기화 없음) — Render 백엔드 배포 후 환경변수 넣고 재배포 필요. CLI 배포 시 `.vercelignore` 가 `.env`(localhost 주소)를 막는다.
-직전 Production: `dotday-8ldlwners-dotday.vercel.app` = `v0.4.2-prod` (Supabase 버전). 되돌릴 땐 이 URL 을 promote.
+현재 Production (2026-10-07): 별칭 `dotday-silk.vercel.app` → `dotday-i1mw7evkr-dotday.vercel.app` = 커밋 `c5b7150`, `VITE_API_URL=https://dotday-api.onrender.com` (Render `dotday-api`, Aiven MySQL). 운영 서버 대상 E2E(`tests/e2e.backend.test.ts`) 통과. CLI 배포 시 `.vercelignore` 가 `.env`(localhost 주소)를 막는다.
+직전 Production: `dotday-gl0ttr55c-dotday.vercel.app` (같은 코드, 로컬 전용 모드). 그 전: `dotday-8ldlwners-dotday.vercel.app` = `v0.4.2-prod` (Supabase 버전).
 
 ```bash
 npx vercel ls dotday --scope dotday

@@ -31,40 +31,49 @@ async function device(name: string, auth: { email: string; password: string; sig
 }
 
 describe.skipIf(!BASE)('E2E 실제 서버 동기화', () => {
+  // Render 무료 플랜은 요청마다 수백 ms 라 30초 기본 제한으로는 부족하다
   it('같은 계정의 두 기기가 서버를 거쳐 생성·수정을 주고받고, 다른 계정에는 보이지 않는다', async () => {
     const email = `e2e-${Date.now()}@example.com`;
-    const a = await device('a', { email, password: 'secret123', signup: true });
-    const b = await device('b', { email, password: 'secret123' });
+    // 운영 서버에 돌려도 흔적이 남지 않게, 실패해도 만든 테스트 계정은 지운다 (방금 로그인했으므로 재인증 불필요)
+    const created: Awaited<ReturnType<typeof device>>[] = [];
+    try {
+      const a = await device('a', { email, password: 'secret123', signup: true });
+      created.push(a);
+      const b = await device('b', { email, password: 'secret123' });
 
-    const p = await a.domain.createProject({ name: '통합 테스트 프로젝트' });
-    const t = await a.domain.createTask({ title: '서버 거쳐 가는 할 일', project_id: p.id, due_date: '2026-10-09' });
-    const ra = await a.domainSync.sync();
-    expect(ra, JSON.stringify(ra)).toMatchObject({ ok: true });
+      const p = await a.domain.createProject({ name: '통합 테스트 프로젝트' });
+      const t = await a.domain.createTask({ title: '서버 거쳐 가는 할 일', project_id: p.id, due_date: '2026-10-09' });
+      const ra = await a.domainSync.sync();
+      expect(ra, JSON.stringify(ra)).toMatchObject({ ok: true });
 
-    const rb = await b.domainSync.sync();
-    expect(rb, JSON.stringify(rb)).toMatchObject({ ok: true });
-    const bt = (await b.domain.snapshot()).tasks.find((x) => x.id === t.id);
-    expect(bt).toMatchObject({ title: '서버 거쳐 가는 할 일', project_id: p.id, due_date: '2026-10-09' });
+      const rb = await b.domainSync.sync();
+      expect(rb, JSON.stringify(rb)).toMatchObject({ ok: true });
+      const bt = (await b.domain.snapshot()).tasks.find((x) => x.id === t.id);
+      expect(bt).toMatchObject({ title: '서버 거쳐 가는 할 일', project_id: p.id, due_date: '2026-10-09' });
 
-    // B 가 고친 것을 A 가 받는다
-    await b.domain.updateTask(t.id, { title: 'B 가 고친 제목', status: 'done' });
-    await b.domainSync.sync();
-    await a.domainSync.sync();
-    expect((await a.domain.snapshot()).tasks.find((x) => x.id === t.id)).toMatchObject({ title: 'B 가 고친 제목', status: 'done' });
+      // B 가 고친 것을 A 가 받는다
+      await b.domain.updateTask(t.id, { title: 'B 가 고친 제목', status: 'done' });
+      await b.domainSync.sync();
+      await a.domainSync.sync();
+      expect((await a.domain.snapshot()).tasks.find((x) => x.id === t.id)).toMatchObject({ title: 'B 가 고친 제목', status: 'done' });
 
-    // 보기 설정도 동기화된다: A 의 기본 보기(목록을 열 때 생성)가 서버를 거쳐 B 에 보인다
-    const av = await a.views.listViews('tasks');
-    expect(av.ok).toBe(true);
-    const viewName = av.ok ? av.value[0].name : '';
-    expect(await a.viewSync.syncViewPreferences()).toMatchObject({ ok: true });
-    const pulled = await new RestViewRemote(a.api, () => a.userId).pullSince(0);
-    expect(pulled.map((v) => v.name)).toContain(viewName);
-    expect(await b.viewSync.syncViewPreferences()).toMatchObject({ ok: true });
+      // 보기 설정도 동기화된다: A 의 기본 보기(목록을 열 때 생성)가 서버를 거쳐 B 에 보인다
+      const av = await a.views.listViews('tasks');
+      expect(av.ok).toBe(true);
+      const viewName = av.ok ? av.value[0].name : '';
+      expect(await a.viewSync.syncViewPreferences()).toMatchObject({ ok: true });
+      const pulled = await new RestViewRemote(a.api, () => a.userId).pullSince(0);
+      expect(pulled.map((v) => v.name)).toContain(viewName);
+      expect(await b.viewSync.syncViewPreferences()).toMatchObject({ ok: true });
 
-    // 다른 계정은 아무것도 받지 못한다
-    const c = await device('c', { email: `e2e-other-${Date.now()}@example.com`, password: 'secret123', signup: true });
-    await c.domainSync.sync();
-    expect((await c.domain.snapshot()).tasks.find((x) => x.id === t.id)).toBeUndefined();
-    expect(await new RestDomainRemote(c.api, () => c.userId).pullSince('tasks', 0)).toEqual([]);
-  });
+      // 다른 계정은 아무것도 받지 못한다
+      const c = await device('c', { email: `e2e-other-${Date.now()}@example.com`, password: 'secret123', signup: true });
+      created.push(c);
+      await c.domainSync.sync();
+      expect((await c.domain.snapshot()).tasks.find((x) => x.id === t.id)).toBeUndefined();
+      expect(await new RestDomainRemote(c.api, () => c.userId).pullSince('tasks', 0)).toEqual([]);
+    } finally {
+      for (const d of created) expect(await d.api.request('POST', '/api/account/delete', { confirm: 'DELETE' })).toMatchObject({ status: 'deleted' });
+    }
+  }, 180_000);
 });
