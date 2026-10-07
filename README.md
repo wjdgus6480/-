@@ -10,7 +10,19 @@
 - **Frontend**: Vite + React 19 + TypeScript. IndexedDB 에 먼저 저장하는 로컬 우선 구조라 로그인 없이·오프라인에서도 동작합니다.
 - **Backend**: Spring Boot 3.5 (Java 21) — `backend/`. 인증(JWT + 기기별 세션), 동기화 API, 소유자 격리.
 - **Database**: MySQL 8 (Aiven for MySQL 무료 플랜) — 스키마는 Flyway(`backend/src/main/resources/db/migration`)로 서버가 시작할 때 자동 적용됩니다.
-- **Version Control**: Git / GitHub
+- **Version Control**: Git / GitHub — https://github.com/wjdgus6480/-
+
+## 운영 주소
+
+| 구성 | 주소 · 서비스 |
+|---|---|
+| 프론트엔드 (Vercel) | https://dotday-silk.vercel.app |
+| 백엔드 API (Render 무료 web service) | https://dotday-api.onrender.com — 상태 확인 `/api/health` |
+| 데이터베이스 | Aiven for MySQL 8.4 무료 플랜 |
+
+- 과제 권장 구성은 "Render MySQL" 이지만 Render 는 관리형 MySQL 을 제공하지 않고, 직접 띄우려면 유료 플랜 전용 디스크가 필요합니다. 그래서 무료로 쓸 수 있는 Aiven MySQL 로 대체했습니다.
+- Render 무료 플랜은 15분간 요청이 없으면 잠들어, 첫 접속에 30초~1분 이상 걸립니다.
+- 배포 검증 (2026-10-07): 운영 서버에서 CORS(Vercel 주소) → 가입 → 로그인 → 할 일 저장(MySQL) → 다시 조회 → 테스트 계정 삭제까지 통과. 백엔드 테스트 전체는 실제 Aiven MySQL(`dotday_test`)에서도 통과.
 
 ## 로컬 개발
 
@@ -50,7 +62,7 @@ DATABASE_URL='mysql://…' JWT_SECRET=<32자 이상 임의 문자열> ./mvnw spr
 2. **MySQL (Aiven 무료)**: Render 는 무료 MySQL 이 없어서(디스크가 유료 플랜 전용) Aiven 을 씁니다.
    aiven.io 가입(카드 불필요) → Create service → MySQL → **Free plan** → Render 와 가까운 지역 선택 → 생성 후 Overview 의 **Service URI** 복사.
    무료 플랜: 1 CPU · 1GB RAM · 1GB 저장, 기간 제한 없음. 오래 쓰지 않으면 Aiven 이 알림 후 서비스를 끌 수 있습니다.
-   실제 MySQL 검증용으로 Databases 탭에서 `dotday_test` DB 를 하나 더 만들고, `backend/local.env` 에 `TEST_DATABASE_URL=…/dotday_test` 를 적은 뒤 `bash backend/scripts/mysql-test.sh`.
+   실제 MySQL 검증: `backend/local.env` 에 `DB_URL`·`DB_USER`·`DB_PASSWORD` 를 적고 `bash backend/scripts/mysql-test.sh` (같은 서버에 `dotday_test` DB 를 자동으로 만들어 씀. `TEST_DATABASE_URL` 을 적으면 그 DB 를 사용).
 3. **Render (백엔드)**: New → Blueprint → 이 저장소 선택 → `render.yaml` 의 `dotday-api` 생성 → `DATABASE_URL`(Service URI)·`CORS_ORIGINS` 입력.
    `JWT_SECRET` 은 자동 생성됩니다. 무료 플랜은 15분간 요청이 없으면 잠들고, 첫 요청에 30초~1분이 걸립니다
    (그동안 프론트는 변경을 기기에 보관했다가 서버가 깨어나면 자동으로 보냅니다).
