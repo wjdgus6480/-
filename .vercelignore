@@ -1,0 +1,10 @@
+# Vercel 로 올리지 않는 파일 (CLI 배포 시)
+# .env 에는 로컬용 VITE_API_URL=http://localhost:8080 이 있어 올라가면 운영 번들에 박힌다 → 운영 값은 Vercel 환경변수로만 넣는다
+.env
+.env.*
+!.env.example
+# 백엔드는 Render 에서 따로 배포 (local.env 에 DB 비밀번호)
+backend
+legacy
+dist
+node_modules
