@@ -10,4 +10,5 @@ export function parsePublicConfig(env: Record<string, string | undefined>): Publ
   return { contactEmail: env.VITE_CONTACT_EMAIL?.trim() || null };
 }
 
-export const publicConfig: PublicConfig = parsePublicConfig(import.meta.env as Record<string, string | undefined>);
+// import.meta.env 를 통째로 넘기면 Vite 가 .env 의 VITE_* 값을 전부 번들에 넣는다 → 쓰는 값만 꺼낸다
+export const publicConfig: PublicConfig = parsePublicConfig({ VITE_CONTACT_EMAIL: import.meta.env.VITE_CONTACT_EMAIL as string | undefined });

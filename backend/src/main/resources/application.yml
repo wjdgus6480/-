@@ -36,4 +36,5 @@ dotday:
   # 탈퇴 등 민감한 작업에 필요한 '최근 로그인' 기준
   reauth-window: 10m
   # 허용할 프론트엔드 주소 (쉼표 구분). 예) https://dotday.vercel.app,http://localhost:5173
-  cors-origins: ${CORS_ORIGINS:http://localhost:5173}
+  # 로컬 개발 기본값: 5173 이 다른 앱에 쓰이면 Vite 가 5174 로 뜨므로 둘 다 허용
+  cors-origins: ${CORS_ORIGINS:http://localhost:5173,http://localhost:5174}
