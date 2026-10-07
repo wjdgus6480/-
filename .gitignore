@@ -8,3 +8,7 @@ dist
 
 # Vercel 로컬 연결·빌드 산출물
 .vercel
+
+# Spring Boot 빌드 산출물
+backend/target
+backend/local.env

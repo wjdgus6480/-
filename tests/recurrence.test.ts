@@ -46,7 +46,7 @@ describe('REC-001 반복 규칙 저장 형식 (계산과 별도)', () => {
   });
   it('서버 CHECK 정규식과 같은 범위 (마이그레이션 0003)', async () => {
     const { readFileSync } = await import('node:fs');
-    const sql = readFileSync('supabase/migrations/20261002000003_domain_sync.sql', 'utf8');
+    const sql = readFileSync('legacy/supabase/migrations/20261002000003_domain_sync.sql', 'utf8');
     const m = sql.match(/recurrence_rule ~ '([^']+)'/);
     const re = new RegExp(m![1]);
     for (const s of ['FREQ=DAILY', 'FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE,FR;COUNT=10', 'FREQ=MONTHLY;UNTIL=20261231']) expect(re.test(formatRule((parseRule(s) as any).rule))).toBe(true);

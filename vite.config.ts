@@ -8,8 +8,9 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['tests/setup.ts'],
-    // 테스트는 실서버(Supabase)에 요청하지 않는다. .env 의 값을 테스트에서만 비운다 (서버 계약은 PGlite 로 검증)
-    env: { VITE_SUPABASE_URL: '', VITE_SUPABASE_ANON_KEY: '' },
+    // 테스트는 실서버(Spring Boot API)에 요청하지 않는다. .env 의 값을 테스트에서만 비운다
+    // (동기화 판정 규칙은 PGlite 에뮬레이터로, 실제 서버는 backend/ 의 JUnit 테스트로 검증)
+    env: { VITE_API_URL: '' },
     testTimeout: 30000,
     hookTimeout: 60000,
   },

@@ -88,7 +88,7 @@ describe('VIEW-016 가져오기 및 복구', () => {
 
 describe('서버/클라이언트 허용 필드 일치', () => {
   it('SQL view_pref_allowed_fields 와 FIELD_REGISTRY 가 같다', () => {
-    const sql = readFileSync(join(process.cwd(), 'supabase/migrations/20261002000002_view_preferences.sql'), 'utf8');
+    const sql = readFileSync(join(process.cwd(), 'legacy/supabase/migrations/20261002000002_view_preferences.sql'), 'utf8');
     for (const domain of ['tasks', 'events', 'projects'] as const) {
       const m = sql.match(new RegExp(`when '${domain}' then array\\[([^\\]]+)\\]`));
       const fields = m![1].split(',').map((s) => s.trim().replace(/'/g, ''));

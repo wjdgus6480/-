@@ -1,0 +1,39 @@
+# 모든 값은 환경변수로 덮어쓸 수 있다 (Render 대시보드 → Environment).
+server:
+  port: ${PORT:8080}
+  forward-headers-strategy: framework
+
+spring:
+  application:
+    name: dotday-backend
+  datasource:
+    # 예) jdbc:mysql://host:3306/dotday?sslMode=REQUIRED
+    url: ${DB_URL:jdbc:mysql://localhost:3306/dotday}
+    username: ${DB_USER:dotday}
+    password: ${DB_PASSWORD:}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:5}
+  flyway:
+    enabled: true
+  jackson:
+    default-property-inclusion: always
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+dotday:
+  # HS256 서명 키. 32바이트 이상 임의 문자열 (예: openssl rand -base64 48). 비어 있으면 서버가 시작하지 않는다.
+  jwt-secret: ${JWT_SECRET:}
+  # 액세스 토큰 유효 기간. 만료되면 다시 로그인한다.
+  token-ttl: ${TOKEN_TTL:14d}
+  # 탈퇴 등 민감한 작업에 필요한 '최근 로그인' 기준
+  reauth-window: 10m
+  # 허용할 프론트엔드 주소 (쉼표 구분). 예) https://dotday.vercel.app,http://localhost:5173
+  cors-origins: ${CORS_ORIGINS:http://localhost:5173}

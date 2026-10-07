@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { MigrationState } from '../App';
 import { useAuthView } from '../app/auth';
 import { AccountActions, LoginForms } from './AuthForms';
+import { clearDeviceData, summarizeDeviceData, type DeviceDataSummary } from '../app/deviceData';
 import { useDomainData, useDomainSyncState, useServices, useSyncState, useViews } from '../app/context';
 import type { DomainBackup, DomainConflict, DomainOp } from '../db/idb';
 import type { DomainError } from '../domain/repo';
@@ -36,6 +37,10 @@ export function SettingsPage({ mig, onMigrate }: { mig: MigrationState; onMigrat
       ))}
       <ImportExportSection />
       <CategorySection />
+      <DeviceDataSection />
+      <p className="muted small legal-links">
+        <a href="#privacy">개인정보 처리방침</a> · <a href="#terms">이용약관</a>
+      </p>
     </section>
   );
 }
@@ -75,13 +80,13 @@ function AccountSection({ mig, onMigrate }: { mig: MigrationState; onMigrate: ()
         <SyncRows title="업무 데이터" st={ds} />
         <SyncRows title="보기 설정" st={st} />
       </dl>
-      {!s.supabase && (
+      {!s.api && (
         <p className="muted small">
-          클라우드가 설정되지 않아 이 기기(IndexedDB)에만 저장됩니다. Supabase 무료 프로젝트의 URL·anon key 를 <code>.env</code> 에 넣으면 로그인과 기기 간 동기화가 켜집니다.
+          서버가 설정되지 않아 이 기기(IndexedDB)에만 저장됩니다. Spring Boot API 주소를 <code>.env</code> 의 <code>VITE_API_URL</code> 에 넣으면 로그인과 기기 간 동기화가 켜집니다.
         </p>
       )}
-      {s.supabase && !authView.userId && <LoginForms />}
-      {s.supabase && authView.userId && <AccountActions email={authView.email} />}
+      {s.api && !authView.userId && <LoginForms />}
+      {s.api && authView.userId && <AccountActions email={authView.email} />}
       <div className="row-actions">
         <button
           type="button"
@@ -592,6 +597,69 @@ function CategorySection() {
       <button type="button" className="btn ghost" onClick={() => void s.domain.seedSample()}>
         샘플 데이터 추가
       </button>
+    </div>
+  );
+}
+
+/**
+ * 이 기기 데이터 지우기 (공용 PC 등). 서버 계정·데이터는 그대로 — 회원 탈퇴와 다르다.
+ * 미전송 변경·로그인 전 데이터·충돌이 있으면 기본적으로 막고, 내보내기를 안내한 뒤 명시적으로 동의해야만 지운다.
+ */
+export function DeviceDataSection({ reload = () => window.location.reload() }: { reload?: () => void }) {
+  const s = useServices();
+  const authView = useAuthView(s.auth);
+  const [summary, setSummary] = useState<DeviceDataSummary | null>(null);
+  const [accept, setAccept] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const refresh = () => void summarizeDeviceData(s.db, authView.userId).then(setSummary);
+  useEffect(refresh, [s.db, authView.userId]);
+  const risky = !!summary && (summary.unsent > 0 || summary.guestRecords > 0 || summary.conflicts > 0);
+  return (
+    <div className="card device-data">
+      <h2>이 기기 데이터 지우기</h2>
+      <p className="muted small">
+        공용 PC 를 쓴 뒤 이 브라우저에 남은 DOTDAY 데이터(일정·투두·보기 설정·대기열)를 지웁니다. 서버의 계정과 데이터는 지워지지 않으며, 다시 로그인하면 서버에서 내려받습니다. 계정 자체를 없애려면 위의 '회원 탈퇴'를 이용하세요.
+      </p>
+      {summary && (
+        <ul className="small">
+          <li>이 기기의 업무 레코드 {summary.records}건 (다른 계정 {summary.otherAccountRecords}건 포함)</li>
+          <li>서버로 아직 보내지 않은 변경 {summary.unsent}건 · 확인이 필요한 충돌 {summary.conflicts}건</li>
+          <li>로그인 전에 만들어 서버에 없는 데이터 {summary.guestRecords}건</li>
+        </ul>
+      )}
+      {risky && (
+        <>
+          <p className="error" role="alert">
+            지우면 서버에 없는 데이터가 사라집니다. 먼저 동기화(로그인 후 '지금 동기화')를 마치거나, '업무 데이터 내보내기'로 백업하세요.
+          </p>
+          <label className="check">
+            <input type="checkbox" checked={accept} onChange={(e) => setAccept(e.target.checked)} /> 서버에 없는 데이터가 사라지는 것을 확인했습니다
+          </label>
+        </>
+      )}
+      <button
+        type="button"
+        className="btn danger"
+        disabled={busy || !summary || (risky && !accept)}
+        onClick={async () => {
+          if (!window.confirm(`이 기기의 DOTDAY 데이터를 지우고${authView.userId ? ' 이 기기에서 로그아웃' : ''}할까요? 서버 데이터는 지워지지 않습니다.`)) return;
+          setBusy(true);
+          const r = await clearDeviceData(s.db, { currentOwner: authView.userId, acceptLoss: accept });
+          if (!r.ok) {
+            setSummary(r.summary);
+            setMsg('서버에 없는 데이터가 생겨 지우지 않았습니다. 내용을 확인한 뒤 다시 시도하세요.');
+            setBusy(false);
+            return;
+          }
+          if (authView.userId) await s.auth.signOutThisDevice();
+          setMsg('이 기기의 데이터를 지웠습니다.');
+          reload();
+        }}
+      >
+        {busy ? '지우는 중…' : authView.userId ? '로그아웃하고 이 기기 데이터 지우기' : '이 기기 데이터 지우기'}
+      </button>
+      {msg && <p role="status">{msg}</p>}
     </div>
   );
 }

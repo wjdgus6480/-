@@ -236,3 +236,15 @@ pre, code, .notice, .error { overflow-wrap: anywhere; }
 /* 로그인 폼: 방법 선택과 입력 사이 간격 */
 .auth-forms { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
 .account-actions { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+
+/* v0.5 공개 서비스: 소셜 로그인 · 탈퇴 · 기기 데이터 · 약관 */
+.social-login { display: flex; flex-direction: column; gap: 6px; }
+.social-login .btn.social { min-height: 40px; }
+.captcha { min-height: 65px; }
+.confirm-pending { border-top: 1px dashed currentColor; padding-top: 8px; }
+.danger-zone { margin-top: 8px; }
+.danger-zone > summary { cursor: pointer; font-weight: 600; }
+.device-data .check { display: flex; align-items: flex-start; gap: 8px; margin: 8px 0; }
+.device-data > .btn { display: block; margin-top: 8px; }
+.legal { max-width: 720px; line-height: 1.6; padding-bottom: 24px; }
+.legal-links { margin-top: 16px; }

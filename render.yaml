@@ -1,0 +1,22 @@
+# Render Blueprint: Spring Boot API (Docker, 무료 web service)
+# 대시보드 → New → Blueprint 에서 이 저장소를 선택하면 아래 서비스가 만들어진다.
+# sync: false 인 값은 처음 만들 때 대시보드에서 직접 입력한다 (저장소에 비밀 값을 두지 않음).
+#
+# MySQL: Render 는 관리형 MySQL 을 제공하지 않는다. Render 에서 MySQL 을 돌리려면
+#        Docker private service + 디스크가 필요하고 디스크는 유료 플랜에서만 쓸 수 있다.
+#        그래서 DB 는 Aiven for MySQL 무료 플랜을 쓰고, 콘솔의 'Service URI' 를 DATABASE_URL 에 그대로 넣는다.
+services:
+  - type: web
+    name: dotday-api
+    runtime: docker
+    plan: free
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        sync: false # Aiven Service URI: mysql://avnadmin:비밀번호@mysql-xxx.aivencloud.com:포트/defaultdb?ssl-mode=REQUIRED
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGINS
+        sync: false # 예) https://dotday.vercel.app,http://localhost:5173

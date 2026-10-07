@@ -108,22 +108,43 @@ export async function domainDump(db: DB) {
 export const USER_A = '00000000-0000-4000-8000-00000000000a';
 export const USER_B = '00000000-0000-4000-8000-00000000000b';
 
-export async function makeServer(): Promise<PGlite> {
+export const MIGRATIONS = () =>
+  readdirSync(join(process.cwd(), 'legacy', 'supabase', 'migrations'))
+    .filter((x) => x.endsWith('.sql'))
+    .sort();
+
+/**
+ * @param opts.upTo 이 접두어(예: '20261005000005')까지의 마이그레이션만 적용 (적용 전/후 비교용)
+ */
+export async function makeServer(opts: { upTo?: string; defaults?: 'legacy' | 'none' } = {}): Promise<PGlite> {
   const pg = new PGlite();
-  // Supabase 환경 대체: auth 스키마, authenticated 역할, auth.uid()
+  // Supabase 환경 대체: auth 스키마, anon/authenticated/service_role 역할, auth.uid()
+  // + Supabase 가 public 스키마에 걸어 두는 기본 권한(default privileges)을 그대로 흉내낸다.
+  //   (기존 프로젝트는 새 테이블·시퀀스·함수에 anon·authenticated 까지 ALL 이 자동 부여됨 → 0006 이 회수)
   await pg.exec(`
+    create role anon nologin;
     create role authenticated nologin;
+    create role service_role nologin bypassrls;
     create schema auth;
-    create table auth.users (id uuid primary key);
+    create table auth.users (id uuid primary key, email text, last_sign_in_at timestamptz default now());
     create function auth.uid() returns uuid language sql stable as $$
       select nullif(nullif(current_setting('request.jwt.claims', true), '')::json->>'sub', '')::uuid $$;
-    grant usage on schema auth to authenticated;
-    grant execute on function auth.uid() to authenticated;
-    grant usage on schema public to authenticated;
-    insert into auth.users values ('${USER_A}'), ('${USER_B}');
+    grant usage on schema auth to anon, authenticated, service_role;
+    grant execute on function auth.uid() to anon, authenticated, service_role;
+    grant usage on schema public to anon, authenticated, service_role;
+    insert into auth.users (id) values ('${USER_A}'), ('${USER_B}');
   `);
-  const dir = join(process.cwd(), 'supabase', 'migrations');
-  for (const f of readdirSync(dir).filter((x) => x.endsWith('.sql')).sort()) {
+  // legacy(기본): 2026-05-30 이전 프로젝트처럼 새 객체에 ALL 자동 부여 / none: 이후 프로젝트처럼 자동 부여 없음(명시적 grant 만)
+  if ((opts.defaults ?? 'legacy') === 'legacy') {
+    await pg.exec(`
+      alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
+      alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
+      alter default privileges in schema public grant all on functions to anon, authenticated, service_role;
+    `);
+  }
+  const dir = join(process.cwd(), 'legacy', 'supabase', 'migrations');
+  for (const f of MIGRATIONS()) {
+    if (opts.upTo && f.slice(0, opts.upTo.length) > opts.upTo) break;
     await pg.exec(readFileSync(join(dir, f), 'utf8'));
   }
   return pg;
@@ -133,6 +154,15 @@ export async function asUser<T>(pg: PGlite, userId: string, fn: (tx: any) => Pro
   return pg.transaction(async (tx) => {
     await tx.query(`select set_config('request.jwt.claims', $1, true)`, [JSON.stringify({ sub: userId })]);
     await tx.exec('set local role authenticated');
+    return fn(tx);
+  });
+}
+
+/** 비로그인(anon 키만 가진) 요청 */
+export async function asAnon<T>(pg: PGlite, fn: (tx: any) => Promise<T>): Promise<T> {
+  return pg.transaction(async (tx) => {
+    await tx.query(`select set_config('request.jwt.claims', '', true)`);
+    await tx.exec('set local role anon');
     return fn(tx);
   });
 }
@@ -191,5 +221,5 @@ function normalize(res: any): PushResult {
 }
 
 export function listDbFiles() {
-  return readdirSync(join(process.cwd(), 'supabase', 'migrations'));
+  return readdirSync(join(process.cwd(), 'legacy', 'supabase', 'migrations'));
 }

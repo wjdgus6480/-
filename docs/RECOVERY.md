@@ -4,12 +4,12 @@
 | 대상 | 위치 | 비고 |
 |---|---|---|
 | 코드·설정 전체 | `Desktop\DOTDAY_backups\dotday_full_YYYYMMDD_HHMM.zip` | `.env`·`.env.local`·`.vercel` 포함 (**비밀 포함, 공유 금지**). 2026-10-05 08:41 백업은 76/76 파일 해시 일치 복원 확인 |
-| 코드 이력 | 로컬 Git (`main`), 태그 `v0.4.1-baseline` = 현재 Production 코드 | 원격 저장소는 아직 없음 |
+| 코드 이력 | 로컬 Git (`main`), 태그 `v0.4.2-prod` = 현재 Production 코드 (2026-10-05 공개 번들과 바이트 일치 확인, `docs/public/07_REMOTE_AUDIT.md` §2). `v0.4.1-baseline` = 그 이전 Production | 원격 저장소는 아직 없음 |
 | 업무 데이터 (기기) | 앱 설정 › 업무 데이터 내보내기 (.json) | 기기마다 IndexedDB 에 있음 |
 | 업무 데이터 (서버) | Supabase 대시보드 › Table Editor › Export CSV, 또는 `supabase db dump` (DB 비밀번호 필요, 사용자가 직접 실행) | 무료 플랜 자동 백업 여부는 대시보드 Database › Backups 에서 확인 |
 
 ## 1. 배포 되돌리기 (가장 빠름, 코드·DB 변경 없음)
-현재 Production: `dotday-mnvrtwrbu-dotday.vercel.app` (2026-10-04, 별칭 `dotday-silk.vercel.app`)
+현재 Production: 별칭 `dotday-silk.vercel.app` → `v0.4.2-prod` 빌드 (Last-Modified 2026-10-05 09:53 KST). 개별 배포 URL 은 미확인 — `npx vercel ls dotday --scope dotday` 로 확인. (이전 기록: `dotday-mnvrtwrbu-dotday.vercel.app`, 2026-10-04 = v0.4.1 시절 배포로 추정)
 
 ```bash
 npx vercel ls dotday --scope dotday
@@ -50,6 +50,11 @@ npx vercel deploy --prebuilt --prod
 ## 4. 데이터 복구
 - 기기 데이터: 설정 › 업무 데이터 가져오기 (가져오기 전 자동 백업, 잘못된 파일은 전체 거부)
 - 서버 DB 구조: `supabase/remote_setup_0001_0004.sql` (빈 프로젝트에서만 실행, 테이블이 있으면 스스로 중단)
+
+## 5. 권한 강화(0006·0007) 되돌리기 — 적용한 경우에만
+- `supabase/remote_rollback_0006_0007.sql` 을 SQL Editor 에서 실행 (데이터 행은 바뀌지 않음, 앱이 쓰는 권한으로 복귀).
+- 적용 전과 똑같이 되돌리려면 적용 전에 `supabase/remote_inspect_readonly.sql` [2-b] 로 저장한 GRANT 문을 이어서 실행.
+- 탈퇴 RPC 로 삭제된 계정·데이터는 롤백되지 않는다 (CSV 백업으로만 복구).
 
 ## 주의
 - 앱은 로그아웃·인증 실패 때 기기 데이터와 미전송 대기열을 지우지 않는다. 브라우저 사이트 데이터를 직접 삭제하면 미전송 변경은 사라진다.

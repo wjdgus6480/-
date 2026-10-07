@@ -1,37 +1,77 @@
-# DOTDAY v0.4
+# DOTDAY v0.5
 
-투두, 캘린더 일정, 프로젝트를 원하는 형태의 테이블로 보는 개인용 앱입니다. 무료 스택으로 만들었습니다.
+투두, 캘린더 일정, 프로젝트를 원하는 형태의 테이블로 보는 개인용 앱입니다.
 
-- 프론트엔드: Vite + React + TypeScript (정적 배포 가능: Cloudflare Pages, Netlify, Vercel 무료)
-- 로컬 저장: IndexedDB. 로그인 없이 바로 쓸 수 있고 오프라인에서도 동작합니다.
-- 클라우드(선택): Supabase 무료 티어(Postgres + RLS + 이메일 매직링크 로그인)
+```
+[브라우저: React + IndexedDB]  ──HTTPS(JWT)──▶  [Spring Boot API]  ──JDBC──▶  [MySQL]
+        Vercel (무료)                          Render (무료 web service)      Aiven (무료 MySQL)
+```
 
-## 실행
+- **Frontend**: Vite + React 19 + TypeScript. IndexedDB 에 먼저 저장하는 로컬 우선 구조라 로그인 없이·오프라인에서도 동작합니다.
+- **Backend**: Spring Boot 3.5 (Java 21) — `backend/`. 인증(JWT + 기기별 세션), 동기화 API, 소유자 격리.
+- **Database**: MySQL 8 (Aiven for MySQL 무료 플랜) — 스키마는 Flyway(`backend/src/main/resources/db/migration`)로 서버가 시작할 때 자동 적용됩니다.
+- **Version Control**: Git / GitHub
+
+## 로컬 개발
+
+### 프론트엔드
 
 ```bash
 npm install
+npm run dev          # http://localhost:5173
+npm test             # 프론트 테스트 (서버 없이 실행)
 ```
+
+`.env` 의 `VITE_API_URL` 이 비어 있으면 로컬 전용 모드입니다. 설정 화면에서 "샘플 데이터 추가"로 바로 써 볼 수 있습니다.
+
+### 백엔드 (JDK 21 필요)
 
 ```bash
-npm run dev
+cd backend
+./mvnw test                                   # 서버 테스트 (H2 메모리 DB, Docker·MySQL 불필요)
+bash scripts/mysql-test.sh                    # 같은 테스트를 실제 MySQL 에서 (backend/local.env 필요)
+DATABASE_URL='mysql://…' JWT_SECRET=<32자 이상 임의 문자열> ./mvnw spring-boot:run     # http://localhost:8080
 ```
 
-http://localhost:5173 을 연 뒤 설정 화면에서 "샘플 데이터 추가"를 누르면 바로 써 볼 수 있습니다.
+프론트 `.env` 에 `VITE_API_URL=http://localhost:8080` 을 넣으면 로그인과 기기 간 동기화가 켜집니다.
+실제 서버와 붙여 보는 통합 테스트: `E2E_API_URL=http://localhost:8080 npx vitest run tests/e2e.backend.test.ts`
 
-```bash
-npm test
-```
+| 서버 환경변수 | 설명 |
+|---|---|
+| `DATABASE_URL` | Aiven 'Service URI' 그대로 (`mysql://avnadmin:…@…aivencloud.com:포트/defaultdb?ssl-mode=REQUIRED`). TLS 는 항상 켬 |
+| `DB_URL` / `DB_USER` / `DB_PASSWORD` | `DATABASE_URL` 대신 JDBC 로 따로 지정할 때 |
+| `JWT_SECRET` | 토큰 서명 키 (32바이트 이상). 없으면 서버가 시작하지 않습니다 |
+| `CORS_ORIGINS` | 허용할 프론트 주소 (쉼표 구분) |
+| `TOKEN_TTL` | 로그인 유지 기간 (기본 14d) |
 
-## 클라우드 동기화 켜기 (선택, 무료)
+## 배포
 
-1. supabase.com에서 무료 프로젝트를 만듭니다.
-2. SQL Editor에서 `supabase/migrations/` 파일을 이름 순서대로 실행합니다(또는 `supabase db push`).
-3. `.env.example`을 `.env`로 복사하고 URL과 anon key를 넣습니다.
-4. Authentication → URL Configuration에 앱 주소를 추가합니다(매직링크 리디렉션용).
+1. **GitHub** 에 저장소를 올립니다.
+2. **MySQL (Aiven 무료)**: Render 는 무료 MySQL 이 없어서(디스크가 유료 플랜 전용) Aiven 을 씁니다.
+   aiven.io 가입(카드 불필요) → Create service → MySQL → **Free plan** → Render 와 가까운 지역 선택 → 생성 후 Overview 의 **Service URI** 복사.
+   무료 플랜: 1 CPU · 1GB RAM · 1GB 저장, 기간 제한 없음. 오래 쓰지 않으면 Aiven 이 알림 후 서비스를 끌 수 있습니다.
+   실제 MySQL 검증용으로 Databases 탭에서 `dotday_test` DB 를 하나 더 만들고, `backend/local.env` 에 `TEST_DATABASE_URL=…/dotday_test` 를 적은 뒤 `bash backend/scripts/mysql-test.sh`.
+3. **Render (백엔드)**: New → Blueprint → 이 저장소 선택 → `render.yaml` 의 `dotday-api` 생성 → `DATABASE_URL`(Service URI)·`CORS_ORIGINS` 입력.
+   `JWT_SECRET` 은 자동 생성됩니다. 무료 플랜은 15분간 요청이 없으면 잠들고, 첫 요청에 30초~1분이 걸립니다
+   (그동안 프론트는 변경을 기기에 보관했다가 서버가 깨어나면 자동으로 보냅니다).
+4. **Vercel (프론트)**: 환경변수 `VITE_API_URL=https://<서비스>.onrender.com` 을 넣고 다시 배포합니다.
+5. Render 의 `CORS_ORIGINS` 에 Vercel 주소(`https://<프로젝트>.vercel.app`)가 들어 있는지 확인합니다.
 
-> v0.4부터 **업무 데이터(투두·일정·프로젝트·분류)**와 **보기 설정**이 각각 따로 동기화됩니다. 로그인하면 로그인 전 데이터의 종류와 건수를 먼저 보여 주고, 확인을 받은 뒤 백업하고 옮깁니다.
-> 브라우저에는 anon(publishable) 키만 넣습니다. `service_role` 키는 절대 `.env`의 `VITE_` 변수에 넣지 마세요(번들에 포함됩니다).
-> 실제 Supabase 연결은 아직 검증되지 않았습니다(자동화 테스트는 PGlite로 같은 SQL을 실행). `docs/TEST_REPORT_v0.4.md` 참고.
+## API
+
+| 메서드 · 경로 | 설명 |
+|---|---|
+| `POST /api/auth/signup` · `POST /api/auth/login` | 가입·로그인 → `{access_token, expires_at, user}` |
+| `GET /api/auth/me` | 토큰 확인 |
+| `POST /api/auth/logout` · `POST /api/auth/logout-all` | 이 기기 / 모든 기기 로그아웃 (서버 세션 폐기) |
+| `PUT /api/auth/password` | 비밀번호 변경 (현재 비밀번호 확인) |
+| `POST /api/auth/reauth` · `POST /api/account/delete` | 재인증 · 본인 탈퇴 (최근 10분 내 로그인 필요) |
+| `POST /api/sync/domain/ops` · `GET /api/sync/domain/{entity}?since=` | 업무 데이터 변경 적용 · 변경분 가져오기 |
+| `POST /api/sync/views/ops` · `GET /api/sync/views?since=` | 보기 설정 변경 적용 · 변경분 가져오기 |
+| `GET /api/health` | 상태 확인 (Render health check) |
+
+변경 적용 결과는 `applied | conflict | not_found | rejected | retry` 중 하나이며, 같은 `op_id` 를 다시 보내면 저장된 결과를 돌려줍니다(멱등).
+모든 쿼리는 토큰의 사용자(`owner_id`)로 제한됩니다.
 
 ## 구조
 
@@ -41,23 +81,27 @@ src/domain/      업무 데이터 (보기 설정과 분리)
   recurrence.ts  반복 규칙(RFC 5545 부분집합)·회차 계산·서머타임
   sync.ts        DomainSyncEngine: 멱등 전송, 병합 단위 3-way 병합, 삭제 충돌
   migrate.ts     계정 연결 시 로그인 전 데이터 이전(미리보기·백업·검증)
-  remote.ts      apply_domain_op RPC 계약 + Supabase 구현
-src/views/
-  fields.ts      허용 필드 레지스트리 (안정 키 ↔ 표시 이름)
-  validate.ts    validateViewConfig, 기본 설정
-  engine.ts      applySortAndFilter (순수 함수, 원본 불변)
-  repo.ts        ViewRepository: list/get/create/update/duplicate/setDefault/delete/restore/reset, 가져오기·내보내기·백업
-  sync.ts        ViewSyncEngine: 오프라인 큐, 멱등 전송, 3-way 병합, 충돌 해결
-  migrate.ts     계정 연결 시 로컬 보기 설정 이전
-  remote.ts      서버 계약 + Supabase 구현
-src/ui/          테이블, 컬럼/정렬/필터 메뉴, 설정 화면
-supabase/migrations/  0001 기본 도메인, 0002 view_preferences, 0003 업무 동기화, 0004 직접 쓰기 보호 (이름 순서대로 적용)
-docs/QUALITY_REVIEW_v0.4.md  품질 검토 (문제·심각도·수정 결과)
-tests/           VIEW / DATA / SYNC / MIG / REC / REM 자동화 테스트 97개 (PGlite로 실제 SQL·RLS 실행)
-docs/DEVELOPMENT_AUDIT.md  v0.4 착수 시점 현황 조사
-docs/TEST_REPORT.md        v0.3 검증 결과
-docs/TEST_REPORT_v0.4.md   v0.4 검증 결과·위험·수정 파일
+  remote.ts      서버 계약(DomainRemote) + REST 구현
+src/views/       보기 설정 (fields·validate·engine·repo·sync·migrate, remote.ts = REST 구현)
+src/app/
+  api.ts         API 클라이언트 (토큰 보관, 401 → 세션 만료 처리, 오류 분류)
+  auth.ts        AuthController: 로그인·가입·로그아웃·비밀번호 변경·탈퇴
+  services.ts    저장소·동기화 엔진·인증 조립 (VITE_API_URL 없으면 로컬 전용)
+src/ui/          테이블, 컬럼/정렬/필터 메뉴, 설정 화면, 로그인 화면
+backend/
+  src/main/java/com/dotday/auth/   SecurityConfig(JWT·CORS), AuthService(가입·로그인·세션·탈퇴), 로그인 시도 제한
+  src/main/java/com/dotday/sync/   DomainOpService·ViewOpService(변경 적용 판정), EntitySpec(필드·검사 규칙)
+  src/main/resources/db/migration/ Flyway 스키마 (V1__init.sql)
+  src/test/                        인증·동기화·사용자 격리 테스트 (MockMvc + H2)
+  Dockerfile                       Render 배포용
+render.yaml      Render Blueprint (백엔드)
+tests/           프론트 테스트 (동기화 엔진은 PGlite 에뮬레이터 서버로, REST 어댑터는 가짜 fetch 로 검증)
+legacy/supabase/ v0.4 까지 쓰던 Supabase(Postgres) SQL. 운영에는 쓰지 않으며, 동기화 엔진 테스트의 에뮬레이터 서버로만 사용
+docs/            v0.4 까지의 품질 검토·테스트 보고서 (docs/public 은 Supabase 시절 운영 점검 기록)
 ```
+
+### 1단계 범위 밖 (v0.4 Supabase 판에는 있었음)
+메일 인증·매직링크·비밀번호 재설정 메일, Google·카카오·네이버 로그인, CAPTCHA. 메일 발송 서비스와 OAuth 연동을 서버에 붙이는 2단계 작업입니다.
 
 ## 설계 결정
 

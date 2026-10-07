@@ -1,7 +1,7 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { ApiClient } from '../app/api';
 import { normalizeServerRow } from '../lib/serverRow';
-import { classifyError, normalizePushResult } from '../views/remote';
-import type { Entity } from './types';
+import { normalizePushResult } from '../views/remote';
+import { DOMAIN_STORES, type Entity } from './types';
 
 export type ServerRow = Record<string, any> & { id: string; owner_id: string; version: number; server_seq: number };
 
@@ -27,9 +27,10 @@ export interface DomainRemote {
   pullSince(entity: Entity, cursor: number, limit?: number): Promise<ServerRow[]>;
 }
 
-export class SupabaseDomainRemote implements DomainRemote {
+/** Spring Boot API: POST /api/sync/domain/ops, GET /api/sync/domain/{entity}?since= */
+export class RestDomainRemote implements DomainRemote {
   constructor(
-    private client: SupabaseClient,
+    private api: ApiClient,
     private getUserId: () => string | null,
   ) {}
 
@@ -38,20 +39,13 @@ export class SupabaseDomainRemote implements DomainRemote {
   }
 
   async push(req: DomainPushRequest): Promise<DomainPushResult> {
-    const { data, error } = await this.client.rpc('apply_domain_op', {
-      p_op_id: req.op_id,
-      p_entity: req.entity,
-      p_id: req.id,
-      p_base_version: req.base_version,
-      p_patch: req.patch,
-    });
-    if (error) throw classifyError(error);
-    return normalizePushResult<DomainPushResult>(data);
+    return normalizePushResult<DomainPushResult>(await this.api.request('POST', '/api/sync/domain/ops', req));
   }
 
   async pullSince(entity: Entity, cursor: number, limit = 500): Promise<ServerRow[]> {
-    const { data, error } = await this.client.from(entity).select('*').gt('server_seq', cursor).order('server_seq', { ascending: true }).limit(limit);
-    if (error) throw classifyError(error);
-    return (data ?? []).map((r) => normalizeServerRow<ServerRow>(r));
+    // 경로에 넣는 엔티티 이름은 고정 목록에서만 (사용자 입력이 URL 에 들어가지 않음)
+    if (!DOMAIN_STORES.includes(entity)) throw new Error(`unknown entity ${entity}`);
+    const rows = await this.api.request<Record<string, unknown>[]>('GET', `/api/sync/domain/${entity}?since=${Math.trunc(cursor)}&limit=${Math.trunc(limit)}`);
+    return (rows ?? []).map((r) => normalizeServerRow<ServerRow>(r));
   }
 }

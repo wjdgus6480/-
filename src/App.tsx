@@ -7,10 +7,10 @@ import { ENTITY_LABEL, SYNC_ORDER } from './domain/types';
 import { migrateLocalViewsToAccount, type MigrationSummary } from './views/migrate';
 import { SettingsPage } from './ui/SettingsPage';
 import { TablePage } from './ui/TablePage';
-import { SetPasswordForm } from './ui/AuthForms';
+import { PrivacyPage, TermsPage } from './ui/LegalPages';
 import { Panel } from './ui/ViewMenus';
 
-type Tab = 'tasks' | 'events' | 'projects' | 'settings';
+type Tab = 'tasks' | 'events' | 'projects' | 'settings' | 'privacy' | 'terms';
 const TABS: { key: Tab; label: string }[] = [
   { key: 'tasks', label: '투두' },
   { key: 'events', label: '캘린더' },
@@ -20,9 +20,12 @@ const TABS: { key: Tab; label: string }[] = [
 
 let servicesPromise: Promise<Services> | null = null;
 
+/** 상단 탭에는 없지만 해시로 여는 화면 (설정·가입 화면의 링크) */
+const EXTRA_ROUTES: Tab[] = ['privacy', 'terms'];
+
 const tabFromHash = (): Tab => {
   const h = location.hash.replace('#', '') as Tab;
-  return TABS.some((t) => t.key === h) ? h : 'tasks';
+  return TABS.some((t) => t.key === h) || EXTRA_ROUTES.includes(h) ? h : 'tasks';
 };
 
 export interface MigrationState {
@@ -150,12 +153,6 @@ function Shell({ mig, onMigrate }: { mig: MigrationState; onMigrate: () => void 
           </a>
         </div>
       )}
-      {authView.recovery && (
-        <Panel title="새 비밀번호 설정" onClose={() => services.auth.clearRecovery()}>
-          <p>비밀번호 재설정 링크로 들어왔습니다. 새 비밀번호를 입력하세요.</p>
-          <SetPasswordForm />
-        </Panel>
-      )}
       {mig.preview && !askOpen && (
         // '나중에'를 눌러도 로그인 전 데이터는 계정(서버)에 없으므로 다른 기기에 보이지 않는다 → 계속 알림
         <div className="notice pending-migration" role="status">
@@ -165,7 +162,17 @@ function Shell({ mig, onMigrate }: { mig: MigrationState; onMigrate: () => void 
           </button>
         </div>
       )}
-      <main>{tab === 'settings' ? <SettingsPage mig={mig} onMigrate={onMigrate} /> : <TablePage key={tab} domain={tab} />}</main>
+      <main>
+        {tab === 'settings' ? (
+          <SettingsPage mig={mig} onMigrate={onMigrate} />
+        ) : tab === 'privacy' ? (
+          <PrivacyPage />
+        ) : tab === 'terms' ? (
+          <TermsPage />
+        ) : (
+          <TablePage key={tab} domain={tab} />
+        )}
+      </main>
       {mig.preview && askOpen && (
         <Panel title="로그인 전 데이터를 계정으로 옮길까요?" onClose={() => setAskOpen(false)}>
           <p>이 기기에 로그인 전에 만든 데이터가 있습니다. 옮기면 다른 기기에서도 보이고 동기화됩니다.</p>
