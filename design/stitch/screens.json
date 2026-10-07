@@ -1,0 +1,92 @@
+[
+  {
+    "id": "140fe06f9a8c4b08aa298129ad74781e",
+    "title": "DOTDAY Design System Specification",
+    "device": "DESKTOP",
+    "size": "0x0"
+  },
+  {
+    "id": "2c5510d978b946d39254359ee847ccc8",
+    "title": "Todos - Desktop Workspace",
+    "device": "DESKTOP",
+    "size": "2560x2614"
+  },
+  {
+    "id": "9251b0765557477bb32608c65e5aea70",
+    "title": "Todos - Mobile Detail Sheet",
+    "device": "MOBILE",
+    "size": "780x2120"
+  },
+  {
+    "id": "e5eb2fc93e40434eaaa6726401162830",
+    "title": "Weekly Calendar",
+    "device": "MOBILE",
+    "size": "780x2602"
+  },
+  {
+    "id": "d5661458b5af4cc3b7399508ec9f0c53",
+    "title": "Calendar - Desktop Workspace",
+    "device": "DESKTOP",
+    "size": "2560x2884"
+  },
+  {
+    "id": "112eb4cd80fc46fd8793e3b257c50c32",
+    "title": "월간 캘린더 - 모바일",
+    "device": "MOBILE",
+    "size": "780x2184"
+  },
+  {
+    "id": "5f273c2b3dfb4c218747a75fd46c7e52",
+    "title": "Monthly Calendar",
+    "device": "MOBILE",
+    "size": "780x1986"
+  },
+  {
+    "id": "ffdf9c7a538940a3a1bf2dd74efc88ee",
+    "title": "Event Creation - Desktop Modal",
+    "device": "DESKTOP",
+    "size": "2560x2048"
+  },
+  {
+    "id": "1ba3a3090ea441fb84659d232bbd2190",
+    "title": "할 일 - 데스크톱 워크스페이스",
+    "device": "DESKTOP",
+    "size": "2560x2548"
+  },
+  {
+    "id": "08cb93fc7e0740469d6cba345e4e6559",
+    "title": "Today - Dashboard",
+    "device": "MOBILE",
+    "size": "780x2640"
+  },
+  {
+    "id": "0113e8e93c3b422495f126432e7a2803",
+    "title": "캘린더 - 데스크톱 워크스페이스",
+    "device": "DESKTOP",
+    "size": "2560x2696"
+  },
+  {
+    "id": "0dd853680b6f4abd81307ab68bdc7b71",
+    "title": "Todo Management",
+    "device": "MOBILE",
+    "size": "780x2894"
+  },
+  {
+    "id": "5bba1e9cf22a445ba649937269dd6dbf",
+    "title": "오늘 - 대시보드",
+    "device": "MOBILE",
+    "size": "780x2760"
+  },
+  {
+    "id": "feabb7e89503489787f47941795ffea1",
+    "title": "Calendar - Mobile Detail Sheet",
+    "device": "MOBILE",
+    "size": "780x1768"
+  },
+  {
+    "id": "4b1473ffb63e4231b7eabb2277ef552a",
+    "title": "Event Creation - Mobile Sheet",
+    "device": "MOBILE",
+    "size": "780x2140"
+  }
+]

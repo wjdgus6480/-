@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuthView } from './app/auth';
-import { ServicesContext, useDomainSyncState, useServices, useSyncState } from './app/context';
+import { ServicesContext, useDomainData, useDomainSyncState, useServices, useSyncState } from './app/context';
 import { createServices, type Services } from './app/services';
 import { migrateLocalDataToAccount, previewLocalDataMigration, type DataMigrationPreview, type DataMigrationSummary } from './domain/migrate';
 import { ENTITY_LABEL, SYNC_ORDER } from './domain/types';
 import { migrateLocalViewsToAccount, type MigrationSummary } from './views/migrate';
 import { SettingsPage } from './ui/SettingsPage';
-import { TablePage } from './ui/TablePage';
+import { CategoryList, MiniCalendar } from './ui/Sidebar';
+import { TablePage, type PageRequest } from './ui/TablePage';
 import { PrivacyPage, TermsPage } from './ui/LegalPages';
 import { Panel } from './ui/ViewMenus';
 
@@ -17,6 +18,14 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'projects', label: '프로젝트' },
   { key: 'settings', label: '설정' },
 ];
+
+/** 메뉴 아이콘 (24px 격자 선 그림) */
+const TAB_ICON: Partial<Record<Tab, string>> = {
+  tasks: 'M4 12l5 5L20 6',
+  events: 'M4 6h16v14H4zM4 10h16M8 3v4M16 3v4',
+  projects: 'M3 7h7l2 2h9v10H3z',
+  settings: 'M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1',
+};
 
 let servicesPromise: Promise<Services> | null = null;
 
@@ -116,6 +125,15 @@ function Shell({ mig, onMigrate }: { mig: MigrationState; onMigrate: () => void 
   const services = useServices();
   const authView = useAuthView(services.auth);
   const [askOpen, setAskOpen] = useState(true);
+  const data = useDomainData();
+  // 사이드바 요청은 대상 화면이 열렸을 때만 전달한다 (다른 화면이 먼저 받아 처리하지 않게)
+  const [request, setRequest] = useState<{ tab: Tab; req: PageRequest } | null>(null);
+  const go = (t: Tab, req: PageRequest) => {
+    location.hash = t;
+    setTab(t);
+    setRequest({ tab: t, req });
+  };
+  const clearRequest = useCallback(() => setRequest(null), []);
   useEffect(() => {
     const on = () => setTab(tabFromHash());
     window.addEventListener('hashchange', on);
@@ -131,48 +149,63 @@ function Shell({ mig, onMigrate }: { mig: MigrationState; onMigrate: () => void 
   return (
     <div className="app">
       <header className="top">
-        <h1>DOTDAY</h1>
+        <h1>
+          <span className="brand-name">DOTDAY</span>
+          <span className="brand-sub">DAILY HUB</span>
+        </h1>
+        <button type="button" className="btn primary side-only side-new" onClick={() => go('tasks', { kind: 'new' })}>
+          + 새 할 일
+        </button>
         <nav className="tabs" aria-label="화면">
           {TABS.map((t) => (
             <a key={t.key} href={`#${t.key}`} className={tab === t.key ? 'on' : ''} aria-current={tab === t.key ? 'page' : undefined}>
+              <svg className="tab-icon" viewBox="0 0 24 24" aria-hidden>
+                <path d={TAB_ICON[t.key]} />
+              </svg>
               {t.label}
             </a>
           ))}
         </nav>
+        <div className="side-only side-extra">
+          <MiniCalendar data={data} onPick={(date) => go('events', { kind: 'date', date })} />
+          <CategoryList data={data} />
+        </div>
         <a href="#settings" className={`sync-badge s-${worst}`} title="동기화 상태 (업무 데이터 · 보기 설정)" aria-live="polite">
           {status}
           {pending > 0 && ` · 대기 ${pending}`}
           {conflicts > 0 && ` · 충돌 ${conflicts}`}
         </a>
       </header>
-      {authView.expired && (
-        <div className="notice auth-expired" role="alert">
-          로그인이 만료되었거나 다른 곳에서 로그아웃되었습니다. 이 기기의 데이터와 아직 보내지 않은 변경은 그대로 보존되어 있으며, 다시 로그인하면 이어서 동기화됩니다.{' '}
-          <a href="#settings" className="btn small primary">
-            다시 로그인
-          </a>
-        </div>
-      )}
-      {mig.preview && !askOpen && (
-        // '나중에'를 눌러도 로그인 전 데이터는 계정(서버)에 없으므로 다른 기기에 보이지 않는다 → 계속 알림
-        <div className="notice pending-migration" role="status">
-          로그인 전에 만든 데이터 {mig.preview.total}건이 아직 계정에 올라가지 않아 다른 기기에 보이지 않습니다.{' '}
-          <button type="button" className="btn small primary" onClick={() => setAskOpen(true)}>
-            계정으로 옮기기
-          </button>
-        </div>
-      )}
-      <main>
-        {tab === 'settings' ? (
-          <SettingsPage mig={mig} onMigrate={onMigrate} />
-        ) : tab === 'privacy' ? (
-          <PrivacyPage />
-        ) : tab === 'terms' ? (
-          <TermsPage />
-        ) : (
-          <TablePage key={tab} domain={tab} />
+      <div className="content">
+        {authView.expired && (
+          <div className="notice auth-expired" role="alert">
+            로그인이 만료되었거나 다른 곳에서 로그아웃되었습니다. 이 기기의 데이터와 아직 보내지 않은 변경은 그대로 보존되어 있으며, 다시 로그인하면 이어서 동기화됩니다.{' '}
+            <a href="#settings" className="btn small primary">
+              다시 로그인
+            </a>
+          </div>
         )}
-      </main>
+        {mig.preview && !askOpen && (
+          // '나중에'를 눌러도 로그인 전 데이터는 계정(서버)에 없으므로 다른 기기에 보이지 않는다 → 계속 알림
+          <div className="notice pending-migration" role="status">
+            로그인 전에 만든 데이터 {mig.preview.total}건이 아직 계정에 올라가지 않아 다른 기기에 보이지 않습니다.{' '}
+            <button type="button" className="btn small primary" onClick={() => setAskOpen(true)}>
+              계정으로 옮기기
+            </button>
+          </div>
+        )}
+        <main>
+          {tab === 'settings' ? (
+            <SettingsPage mig={mig} onMigrate={onMigrate} />
+          ) : tab === 'privacy' ? (
+            <PrivacyPage />
+          ) : tab === 'terms' ? (
+            <TermsPage />
+          ) : (
+            <TablePage key={tab} domain={tab} request={request?.tab === tab ? request.req : null} onHandled={clearRequest} />
+          )}
+        </main>
+      </div>
       {mig.preview && askOpen && (
         <Panel title="로그인 전 데이터를 계정으로 옮길까요?" onClose={() => setAskOpen(false)}>
           <p>이 기기에 로그인 전에 만든 데이터가 있습니다. 옮기면 다른 기기에서도 보이고 동기화됩니다.</p>

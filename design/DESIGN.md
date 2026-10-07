@@ -32,7 +32,8 @@ claude mcp add stitch --transport http https://stitch.googleapis.com/mcp --heade
   `4b1473ffb63e4231b7eabb2277ef552a` `ffdf9c7a538940a3a1bf2dd74efc88ee` `2c5510d978b946d39254359ee847ccc8`
   `9251b0765557477bb32608c65e5aea70` `5bba1e9cf22a445ba649937269dd6dbf` `0113e8e93c3b422495f126432e7a2803`
   `1ba3a3090ea441fb84659d232bbd2190` `112eb4cd80fc46fd8793e3b257c50c32`
-- 가져온 이미지·코드는 `design/stitch/<화면 ID>/` 에 저장해 비교 기준으로 남긴다 (Stitch HTML 은 참고용, 앱에 직접 붙이지 않음).
+- 가져온 이미지·코드는 `design/stitch/<화면 ID>/` 에 저장해 비교 기준으로 남긴다 (Stitch HTML 은 참고용, 앱에 직접 붙이지 않음). 화면 목록은 `design/stitch/screens.json`.
+- 주의: MCP 가 주는 이미지·코드 다운로드 주소는 **Google 로그인 쿠키가 있어야** 열린다 (API 키만으로는 로그인 페이지가 내려옴). Stitch 에 로그인한 브라우저에서 받거나 Stitch 화면의 Export 를 쓴다.
 
 ## 2. 디자인 토큰 (`src/styles.css` `:root`)
 
@@ -86,7 +87,7 @@ claude mcp add stitch --transport http https://stitch.googleapis.com/mcp --heade
 
 ## 4. 바꾸면 안 되는 규칙 (Stitch 시안이 어겨도 코드에는 반영 안 함)
 
-- 앱의 중심은 **사용자가 컬럼을 고르는 표**다. 카드 그리드·칸반·월간 달력으로 바꾸지 않는다 (추가 기능으로는 가능하지만 이번 범위 밖).
+- 앱의 중심은 **사용자가 컬럼을 고르는 표**다. 카드·월간 달력은 표를 대신하지 않고 **옆에 추가한 표시 방식**이며, 기본값은 표다. 카드·월간도 같은 보기의 필터·정렬·검색 결과를 쓴다.
 - 제목/이름 컬럼은 숨길 수 없다. 열기·완료 체크 칸은 컬럼 설정 밖의 고정된 첫 칸이다.
 - 모바일에서는 표를 **가로 스크롤**한다. 화면이 좁다고 컬럼을 자동으로 숨기지 않는다. 첫 칸만 고정(sticky).
 - 모바일 탭은 하단 고정 탭바(엄지 영역), 패널은 바텀시트. 터치 대상 최소 44px, 입력창 글자 16px (iOS 확대 방지).
@@ -100,3 +101,18 @@ claude mcp add stitch --transport http https://stitch.googleapis.com/mcp --heade
 - **파비콘**: 없음. 로고 앞 픽셀 점과 같은 모양으로 `public/favicon.svg` 를 만들면 된다.
 - **간격 토큰**: 숫자 그대로 (Stitch 는 8pt 그리드: 4/8/16/24/32).
 - **Pretendard CDN**: 외부 CDN 의존. 오프라인 우선 앱이라 나중에 `public/` 으로 내려받아 두는 것도 고려.
+
+## 6. Stitch 화면 반영 (2026-10-07)
+
+Stitch 프로젝트의 화면 15개 중 "화면 틀 + 카드 목록 + 월간 달력" 범위만 반영했다. 데이터·서버는 바꾸지 않았다.
+
+| 반영 | 위치 |
+|---|---|
+| 데스크톱(1024px 이상) 왼쪽 사이드바: 로고·DAILY HUB, `+ 새 할 일`, 아이콘 메뉴, 미니 달력(일정·마감 투두 있는 날 점, 누르면 캘린더 월간 보기로 이동), 분류별 미완료 개수, 동기화 배지 | `App.tsx` Shell, `ui/Sidebar.tsx` |
+| 투두 표시 방식 **표 / 카드**. 카드는 지난 기한·오늘·예정·날짜 없음·완료됨(접힘)으로 묶고, 왼쪽 띠는 분류 색 | `ui/TaskCards.tsx` |
+| 캘린더 표시 방식 **목록 / 월간**. 월간은 반복 일정을 회차로 펼치고 마감 투두도 함께 표시. 데스크톱은 칸 안에 칩(최대 3개 + `+N`), 모바일은 점만 찍고 고른 날의 목록을 아래에 | `ui/MonthCalendar.tsx`, `ui/calendarGrid.ts` |
+| 메뉴 아이콘(선 SVG), 모바일 독은 아이콘 + 글자 | `App.tsx` |
+
+표시 방식(표/카드, 목록/월간)은 **이 기기에만** 기억한다 (`localStorage` `dotday.mode.<domain>`). 보기 설정(서버 동기화)에 넣으려면 `layout_config` 필드를 프론트 `views/validate.ts` 와 서버 `ViewConfigValidator` 에 함께 추가해야 해서 이번에는 하지 않았다.
+
+반영하지 않은 것 (데이터 모델·서버 변경이 필요): EXP·레벨·보상, 하위 퀘스트(체크리스트), 미션 노트, 알림, 시간 블록 연동, 오늘 대시보드, 주간 타임라인.

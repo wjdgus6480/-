@@ -6,13 +6,30 @@ import { applySortAndFilterPure, removeStaleReferences } from '../views/engine';
 import { buildContext, DOMAIN_LABEL } from '../views/fields';
 import type { ColumnConfig, FilterConfig, SortRule, ViewDomain, ViewPreference } from '../views/types';
 import { DataTable } from './DataTable';
+import { MonthCalendar } from './MonthCalendar';
 import { OccurrenceList } from './OccurrenceList';
 import { RecordEditor } from './RecordEditor';
+import { TaskCards } from './TaskCards';
 import { ColumnMenu, countFilters, FilterMenu, Panel, SortMenu } from './ViewMenus';
 
 type PanelKind = 'columns' | 'sort' | 'filter' | 'view' | null;
 
-export function TablePage({ domain }: { domain: ViewDomain }) {
+/** 표 외의 표시 방식. 기기별 화면 편의라 보기 설정(서버 동기화)이 아니라 이 기기에만 기억한다 */
+const MODES: Partial<Record<ViewDomain, { key: string; label: string }[]>> = {
+  tasks: [
+    { key: 'table', label: '표' },
+    { key: 'cards', label: '카드' },
+  ],
+  events: [
+    { key: 'table', label: '목록' },
+    { key: 'month', label: '월간' },
+  ],
+};
+
+/** 사이드바에서 온 한 번짜리 요청: '+ 새 할 일'(new) · 미니 달력 날짜(date). 처리하면 onHandled 로 비운다 */
+export type PageRequest = { kind: 'new' } | { kind: 'date'; date: string } | null;
+
+export function TablePage({ domain, request, onHandled }: { domain: ViewDomain; request?: PageRequest; onHandled?: () => void }) {
   const s = useServices();
   const data = useDomainData();
   const { list, error } = useViews(domain);
@@ -22,6 +39,22 @@ export function TablePage({ domain }: { domain: ViewDomain }) {
   const [panel, setPanel] = useState<PanelKind>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [editing, setEditing] = useState<any | null | undefined>(undefined); // undefined=닫힘, null=새로 만들기
+  const modeKey = `dotday.mode.${domain}`;
+  const [mode, setModeState] = useState(() => prefs.get(modeKey) ?? 'table');
+  const setMode = (m: string) => {
+    setModeState(m);
+    prefs.set(modeKey, m);
+  };
+  const [focusDate, setFocusDate] = useState<string | null>(null);
+  useEffect(() => {
+    if (!request) return;
+    if (request.kind === 'new') setEditing(null);
+    else if (domain === 'events') {
+      setModeState('month');
+      setFocusDate(request.date);
+    }
+    onHandled?.();
+  }, [request, domain, onHandled]);
 
   const view: ViewPreference | undefined = list.find((v) => v.id === viewId) ?? list[0];
   const [search, setSearch] = useState('');
@@ -29,6 +62,12 @@ export function TablePage({ domain }: { domain: ViewDomain }) {
 
   const ctx = useMemo(() => buildContext(data), [data]);
   const rows = useMemo(() => (view ? applySortAndFilterPure(domain, data, { sort_config: view.sort_config, filter_config: { ...view.filter_config, search } }, ctx) : []), [domain, data, view, search, ctx]);
+  // 월간 보기: 보기에 남은 일정 + 그 반복 일정의 예외 회차 행 (회차를 펼칠 때 필요)
+  const monthEvents = useMemo(() => {
+    if (domain !== 'events') return [];
+    const ids = new Set(rows.map((r) => r.id));
+    return data.events.filter((e) => ids.has(e.id) || (e.recurrence_parent_id !== null && ids.has(e.recurrence_parent_id)));
+  }, [domain, rows, data.events]);
   const total = domain === 'tasks' ? data.tasks.length : domain === 'events' ? data.events.length : data.projects.length;
 
   const save = async (patch: Parameters<typeof s.views.updateView>[1]) => {
@@ -101,10 +140,12 @@ export function TablePage({ domain }: { domain: ViewDomain }) {
 
   const nFilters = countFilters(view.filter_config);
   const hiddenCount = view.column_config.filter((c) => !c.visible).length;
+  const modes = MODES[domain];
+  const emptyText = total === 0 ? '아직 항목이 없습니다. + 추가 를 눌러 시작하세요.' : '조건에 맞는 항목이 없습니다.';
 
   return (
     <section className="table-page">
-      {domain === 'events' && <OccurrenceList data={data} />}
+      {domain === 'events' && mode !== 'month' && <OccurrenceList data={data} />}
       <div className="toolbar">
         <div className="view-switch">
           <select value={view.id} onChange={(e) => selectView(e.target.value)} aria-label="보기 선택">
@@ -119,6 +160,15 @@ export function TablePage({ domain }: { domain: ViewDomain }) {
             ⋯
           </button>
         </div>
+        {modes && (
+          <div className="seg" role="group" aria-label="표시 방식">
+            {modes.map((m) => (
+              <button key={m.key} type="button" className={mode === m.key ? 'on' : ''} aria-pressed={mode === m.key} onClick={() => setMode(m.key)}>
+                {m.label}
+              </button>
+            ))}
+          </div>
+        )}
         <input className="search" type="search" placeholder="검색 (제목·설명)" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="검색" maxLength={200} />
         <div className="tool-buttons">
           <button type="button" className={`btn ${view.sort_config.length ? 'active' : ''}`} onClick={() => setPanel('sort')}>
@@ -127,9 +177,11 @@ export function TablePage({ domain }: { domain: ViewDomain }) {
           <button type="button" className={`btn ${nFilters ? 'active' : ''}`} onClick={() => setPanel('filter')}>
             필터{nFilters ? ` ${nFilters}` : ''}
           </button>
-          <button type="button" className="btn" onClick={() => setPanel('columns')}>
-            컬럼{hiddenCount ? ` (${hiddenCount} 숨김)` : ''}
-          </button>
+          {mode === 'table' && (
+            <button type="button" className="btn" onClick={() => setPanel('columns')}>
+              컬럼{hiddenCount ? ` (${hiddenCount} 숨김)` : ''}
+            </button>
+          )}
           <button type="button" className="btn primary" onClick={() => setEditing(null)}>
             + 추가
           </button>
@@ -144,33 +196,45 @@ export function TablePage({ domain }: { domain: ViewDomain }) {
         {DOMAIN_LABEL[domain]} {rows.length} / {total}건{rows.length < total ? ' (나머지는 이 보기의 필터로 숨겨짐)' : ''}
       </p>
 
-      <DataTable
-        domain={domain}
-        columns={view.column_config}
-        rows={rows}
-        ctx={ctx}
-        tz={view.layout_config.timezone ?? localTimeZone()}
-        density={view.layout_config.density}
-        sort={view.sort_config}
-        isMobile={isMobile}
-        onHeaderSort={headerSort}
-        onReorder={reorder}
-        onResize={resize}
-        onRowClick={(r) => setEditing(r)}
-        emptyText={total === 0 ? '아직 항목이 없습니다. + 추가 를 눌러 시작하세요.' : '조건에 맞는 항목이 없습니다.'}
-        lead={
-          domain === 'tasks'
-            ? (r: Task) => (
-                <input
-                  type="checkbox"
-                  checked={r.status === 'done'}
-                  aria-label={`${r.title} 완료`}
-                  onChange={(e) => void s.domain.updateTask(r.id, { status: e.target.checked ? 'done' : 'todo' })}
-                />
-              )
-            : undefined
-        }
-      />
+      {domain === 'tasks' && mode === 'cards' ? (
+        <TaskCards
+          rows={rows as Task[]}
+          data={data}
+          onOpen={(t) => setEditing(t)}
+          onToggle={(t, done) => void s.domain.updateTask(t.id, { status: done ? 'done' : 'todo' })}
+          emptyText={emptyText}
+        />
+      ) : domain === 'events' && mode === 'month' ? (
+        <MonthCalendar events={monthEvents} data={data} focusDate={focusDate} />
+      ) : (
+        <DataTable
+          domain={domain}
+          columns={view.column_config}
+          rows={rows}
+          ctx={ctx}
+          tz={view.layout_config.timezone ?? localTimeZone()}
+          density={view.layout_config.density}
+          sort={view.sort_config}
+          isMobile={isMobile}
+          onHeaderSort={headerSort}
+          onReorder={reorder}
+          onResize={resize}
+          onRowClick={(r) => setEditing(r)}
+          emptyText={emptyText}
+          lead={
+            domain === 'tasks'
+              ? (r: Task) => (
+                  <input
+                    type="checkbox"
+                    checked={r.status === 'done'}
+                    aria-label={`${r.title} 완료`}
+                    onChange={(e) => void s.domain.updateTask(r.id, { status: e.target.checked ? 'done' : 'todo' })}
+                  />
+                )
+              : undefined
+          }
+        />
+      )}
 
       {panel === 'columns' && (
         <Panel title="컬럼 설정" onClose={() => setPanel(null)}>
