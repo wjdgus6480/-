@@ -9,8 +9,8 @@
 | 업무 데이터 (서버) | Supabase 대시보드 › Table Editor › Export CSV, 또는 `supabase db dump` (DB 비밀번호 필요, 사용자가 직접 실행) | 무료 플랜 자동 백업 여부는 대시보드 Database › Backups 에서 확인 |
 
 ## 1. 배포 되돌리기 (가장 빠름, 코드·DB 변경 없음)
-현재 Production (2026-10-07): 별칭 `dotday-silk.vercel.app` → `dotday-pjj91kf64-dotday.vercel.app` = 커밋 `bf042e4` (Stitch 사이드바·카드·월간 보기), `VITE_API_URL=https://dotday-api.onrender.com` (Render `dotday-api`, Aiven MySQL). 운영 서버 대상 E2E(`tests/e2e.backend.test.ts`) 통과. CLI 배포 시 `.vercelignore` 가 `.env`(localhost 주소)를 막는다.
-직전 Production: `dotday-i1mw7evkr-dotday.vercel.app` (`c5b7150`, Render API 연결 첫 배포). 그 전: `dotday-gl0ttr55c` (로컬 전용 모드), `dotday-8ldlwners-dotday.vercel.app` = `v0.4.2-prod` (Supabase 버전).
+현재 Production (2026-10-08): 별칭 `dotday-silk.vercel.app` → `dotday-qfi398znt-dotday.vercel.app` = 커밋 `3ac365e` (오늘 대시보드·주간 보기·EXP), `VITE_API_URL=https://dotday-api.onrender.com` (Render `dotday-api`, Aiven MySQL). 운영 서버 대상 E2E(`tests/e2e.backend.test.ts`) 통과. CLI 배포 시 `.vercelignore` 가 `.env`(localhost 주소)를 막는다.
+직전 Production: `dotday-pjj91kf64-dotday.vercel.app` (`bf042e4`, 사이드바·카드·월간). 그 전: `dotday-i1mw7evkr` (`c5b7150`, Render API 첫 연결), `dotday-8ldlwners-dotday.vercel.app` = `v0.4.2-prod` (Supabase 버전).
 
 ```bash
 npx vercel ls dotday --scope dotday
