@@ -7,6 +7,7 @@ import { addDays, isoToZonedLocal, localTimeZone, zonedLocalToIso } from '../lib
 import { PROJECT_STATUS, TASK_PRIORITY, TASK_STATUS } from '../views/fields';
 import type { ViewDomain } from '../views/types';
 import { Panel } from './ViewMenus';
+import { setTaskDone, taskXp } from './xp';
 
 const TIMEZONES = Array.from(new Set([localTimeZone(), 'Asia/Seoul', 'UTC', 'Asia/Tokyo', 'America/New_York', 'America/Los_Angeles', 'Europe/London', 'Europe/Paris']));
 
@@ -51,6 +52,11 @@ export function RecordEditor({
         <p className="error" role="alert">
           {err}
         </p>
+      )}
+      {domain === 'tasks' && record && (
+        <button type="button" className={`btn ${record.status === 'done' ? '' : 'quest-done'}`} onClick={() => void run(() => setTaskDone(repo, record, record.status !== 'done'))}>
+          {record.status === 'done' ? '다시 열기' : `완료하기 (+${taskXp(record)} EXP)`}
+        </button>
       )}
       {record && (
         <button type="button" className="btn danger" onClick={remove}>

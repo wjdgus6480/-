@@ -10,6 +10,8 @@ import { MonthCalendar } from './MonthCalendar';
 import { OccurrenceList } from './OccurrenceList';
 import { RecordEditor } from './RecordEditor';
 import { TaskCards } from './TaskCards';
+import { WeekCalendar } from './WeekCalendar';
+import { setTaskDone } from './xp';
 import { ColumnMenu, countFilters, FilterMenu, Panel, SortMenu } from './ViewMenus';
 
 type PanelKind = 'columns' | 'sort' | 'filter' | 'view' | null;
@@ -22,6 +24,7 @@ const MODES: Partial<Record<ViewDomain, { key: string; label: string }[]>> = {
   ],
   events: [
     { key: 'table', label: '목록' },
+    { key: 'week', label: '주간' },
     { key: 'month', label: '월간' },
   ],
 };
@@ -46,6 +49,7 @@ export function TablePage({ domain, request, onHandled }: { domain: ViewDomain; 
     prefs.set(modeKey, m);
   };
   const [focusDate, setFocusDate] = useState<string | null>(null);
+  const [quick, setQuick] = useState('');
   useEffect(() => {
     if (!request) return;
     if (request.kind === 'new') setEditing(null);
@@ -62,7 +66,7 @@ export function TablePage({ domain, request, onHandled }: { domain: ViewDomain; 
 
   const ctx = useMemo(() => buildContext(data), [data]);
   const rows = useMemo(() => (view ? applySortAndFilterPure(domain, data, { sort_config: view.sort_config, filter_config: { ...view.filter_config, search } }, ctx) : []), [domain, data, view, search, ctx]);
-  // 월간 보기: 보기에 남은 일정 + 그 반복 일정의 예외 회차 행 (회차를 펼칠 때 필요)
+  // 월간·주간 보기: 보기에 남은 일정 + 그 반복 일정의 예외 회차 행 (회차를 펼칠 때 필요)
   const monthEvents = useMemo(() => {
     if (domain !== 'events') return [];
     const ids = new Set(rows.map((r) => r.id));
@@ -145,7 +149,7 @@ export function TablePage({ domain, request, onHandled }: { domain: ViewDomain; 
 
   return (
     <section className="table-page">
-      {domain === 'events' && mode !== 'month' && <OccurrenceList data={data} />}
+      {domain === 'events' && mode === 'table' && <OccurrenceList data={data} />}
       <div className="toolbar">
         <div className="view-switch">
           <select value={view.id} onChange={(e) => selectView(e.target.value)} aria-label="보기 선택">
@@ -192,6 +196,18 @@ export function TablePage({ domain, request, onHandled }: { domain: ViewDomain; 
           {msg}
         </p>
       )}
+      {domain === 'tasks' && (
+        <form
+          className="quick-add"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const title = quick.trim();
+            if (title) void s.domain.createTask({ title }).then(() => setQuick(''));
+          }}
+        >
+          <input value={quick} onChange={(e) => setQuick(e.target.value)} placeholder="새 퀘스트를 입력하고 Enter (자세한 내용은 + 추가)" aria-label="투두 빠르게 추가" maxLength={500} />
+        </form>
+      )}
       <p className="count muted">
         {DOMAIN_LABEL[domain]} {rows.length} / {total}건{rows.length < total ? ' (나머지는 이 보기의 필터로 숨겨짐)' : ''}
       </p>
@@ -201,11 +217,13 @@ export function TablePage({ domain, request, onHandled }: { domain: ViewDomain; 
           rows={rows as Task[]}
           data={data}
           onOpen={(t) => setEditing(t)}
-          onToggle={(t, done) => void s.domain.updateTask(t.id, { status: done ? 'done' : 'todo' })}
+          onToggle={(t, done) => void setTaskDone(s.domain, t, done)}
           emptyText={emptyText}
         />
       ) : domain === 'events' && mode === 'month' ? (
         <MonthCalendar events={monthEvents} data={data} focusDate={focusDate} />
+      ) : domain === 'events' && mode === 'week' ? (
+        <WeekCalendar events={monthEvents} data={data} />
       ) : (
         <DataTable
           domain={domain}
@@ -228,7 +246,7 @@ export function TablePage({ domain, request, onHandled }: { domain: ViewDomain; 
                     type="checkbox"
                     checked={r.status === 'done'}
                     aria-label={`${r.title} 완료`}
-                    onChange={(e) => void s.domain.updateTask(r.id, { status: e.target.checked ? 'done' : 'todo' })}
+                    onChange={(e) => void setTaskDone(s.domain, r, e.target.checked)}
                   />
                 )
               : undefined

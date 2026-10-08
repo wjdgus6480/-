@@ -166,6 +166,7 @@ describe('AUTH-004 앱 연동: 만료 안내·데이터 보존·재로그인 동
     await s.domain.createTask({ title: '로그인 중 작업' });
     const before = await domainDump(s.db);
     const outbox = await s.db.getAll('domain_outbox');
+    location.hash = '#tasks'; // 마감일 없는 투두라 오늘 대시보드가 아니라 투두 표에서 확인
     render(<App services={s} />);
     await screen.findByText('로그인 중 작업');
     s.auth.handle('SIGNED_OUT', null); // 사용자가 하지 않은 로그아웃

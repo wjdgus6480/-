@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { DomainSnapshot } from '../domain/types';
 import { localTimeZone } from '../lib/util';
 import { itemsByDay, monthCells, shiftMonth, todayStr, WEEK_LABELS } from './calendarGrid';
+import { levelTitle, playerStats } from './xp';
 
 /** 데스크톱 사이드바의 미니 달력. 일정·마감 투두가 있는 날에 점을 찍고, 날짜를 누르면 월간 캘린더로 간다 */
 export function MiniCalendar({ data, onPick }: { data: DomainSnapshot; onPick: (date: string) => void }) {
@@ -76,6 +77,25 @@ export function CategoryList({ data }: { data: DomainSnapshot }) {
           </li>
         ))}
       </ul>
+    </section>
+  );
+}
+
+/** 사이드바 아래 레벨 카드 (완료한 투두로 계산한 EXP) */
+export function LevelCard({ data }: { data: DomainSnapshot }) {
+  const st = useMemo(() => playerStats(data.tasks), [data.tasks]);
+  return (
+    <section className="level-card" aria-label="레벨">
+      <span className="level-badge">Lv.{st.level}</span>
+      <div className="level-info">
+        <strong>{levelTitle(st.level)}</strong>
+        <span className="level-xp">
+          {st.into} / {st.need} EXP · 완료 {st.done}
+        </span>
+        <div className="bar xp">
+          <i style={{ width: `${Math.round((st.into / st.need) * 100)}%` }} />
+        </div>
+      </div>
     </section>
   );
 }

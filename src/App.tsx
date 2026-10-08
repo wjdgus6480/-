@@ -6,13 +6,16 @@ import { migrateLocalDataToAccount, previewLocalDataMigration, type DataMigratio
 import { ENTITY_LABEL, SYNC_ORDER } from './domain/types';
 import { migrateLocalViewsToAccount, type MigrationSummary } from './views/migrate';
 import { SettingsPage } from './ui/SettingsPage';
-import { CategoryList, MiniCalendar } from './ui/Sidebar';
+import { CategoryList, LevelCard, MiniCalendar } from './ui/Sidebar';
+import { Toast } from './ui/Toast';
+import { TodayPage } from './ui/TodayPage';
 import { TablePage, type PageRequest } from './ui/TablePage';
 import { PrivacyPage, TermsPage } from './ui/LegalPages';
 import { Panel } from './ui/ViewMenus';
 
-type Tab = 'tasks' | 'events' | 'projects' | 'settings' | 'privacy' | 'terms';
+type Tab = 'today' | 'tasks' | 'events' | 'projects' | 'settings' | 'privacy' | 'terms';
 const TABS: { key: Tab; label: string }[] = [
+  { key: 'today', label: '오늘' },
   { key: 'tasks', label: '투두' },
   { key: 'events', label: '캘린더' },
   { key: 'projects', label: '프로젝트' },
@@ -21,6 +24,7 @@ const TABS: { key: Tab; label: string }[] = [
 
 /** 메뉴 아이콘 (24px 격자 선 그림) */
 const TAB_ICON: Partial<Record<Tab, string>> = {
+  today: 'M12 8a4 4 0 1 0 0 8a4 4 0 1 0 0-8M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
   tasks: 'M4 12l5 5L20 6',
   events: 'M4 6h16v14H4zM4 10h16M8 3v4M16 3v4',
   projects: 'M3 7h7l2 2h9v10H3z',
@@ -34,7 +38,7 @@ const EXTRA_ROUTES: Tab[] = ['privacy', 'terms'];
 
 const tabFromHash = (): Tab => {
   const h = location.hash.replace('#', '') as Tab;
-  return TABS.some((t) => t.key === h) || EXTRA_ROUTES.includes(h) ? h : 'tasks';
+  return TABS.some((t) => t.key === h) || EXTRA_ROUTES.includes(h) ? h : 'today';
 };
 
 export interface MigrationState {
@@ -169,6 +173,7 @@ function Shell({ mig, onMigrate }: { mig: MigrationState; onMigrate: () => void 
         <div className="side-only side-extra">
           <MiniCalendar data={data} onPick={(date) => go('events', { kind: 'date', date })} />
           <CategoryList data={data} />
+          <LevelCard data={data} />
         </div>
         <a href="#settings" className={`sync-badge s-${worst}`} title="동기화 상태 (업무 데이터 · 보기 설정)" aria-live="polite">
           {status}
@@ -195,7 +200,9 @@ function Shell({ mig, onMigrate }: { mig: MigrationState; onMigrate: () => void 
           </div>
         )}
         <main>
-          {tab === 'settings' ? (
+          {tab === 'today' ? (
+          <TodayPage />
+        ) : tab === 'settings' ? (
             <SettingsPage mig={mig} onMigrate={onMigrate} />
           ) : tab === 'privacy' ? (
             <PrivacyPage />
@@ -246,6 +253,7 @@ function Shell({ mig, onMigrate }: { mig: MigrationState; onMigrate: () => void 
           </div>
         </Panel>
       )}
+      <Toast />
     </div>
   );
 }
